@@ -174,4 +174,3 @@ For support and questions:
 - Email: support@paymentgateway.com
 - Documentation: `/docs`
 - Issues: GitHub Issues
-"# payment-gateway-app" 

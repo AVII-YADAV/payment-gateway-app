@@ -1,0 +1,354 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  firstName     String
+  lastName      String
+  phone         String?
+  avatar        String?
+  role          UserRole  @default(USER)
+  isActive      Boolean   @default(true)
+  isVerified    Boolean   @default(false)
+  emailVerified DateTime?
+  phoneVerified DateTime?
+  twoFactorEnabled Boolean @default(false)
+  twoFactorSecret String?
+  lastLogin     DateTime?
+  loginAttempts Int       @default(0)
+  lockedUntil   DateTime?
+  ipWhitelist   String[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  merchant      Merchant?
+  transactions  Transaction[]
+  refunds       Refund[]
+  disputes      Dispute[]
+  apiKeys       ApiKey[]
+  webhooks      Webhook[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+model Merchant {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  businessName    String
+  businessType    BusinessType
+  gstin           String?
+  pan             String?
+  address         Json
+  bankDetails     Json?
+  kycStatus       KYCStatus @default(PENDING)
+  kycDocuments    Json?
+  kycSubmittedAt  DateTime?
+  kycApprovedAt   DateTime?
+  kycRejectedAt   DateTime?
+  kycRejectionReason String?
+  isActive        Boolean   @default(true)
+  commissionRate  Float     @default(2.5)
+  minAmount       Float     @default(1.0)
+  maxAmount       Float     @default(100000.0)
+  dailyLimit      Float     @default(1000000.0)
+  monthlyLimit    Float     @default(10000000.0)
+  totalProcessed  Float     @default(0)
+  totalFees       Float     @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions    Transaction[]
+  refunds         Refund[]
+  disputes        Dispute[]
+  apiKeys         ApiKey[]
+  webhooks        Webhook[]
+  qrCodes         QRCode[]
+  invoices        Invoice[]
+
+  @@map("merchants")
+}
+
+model Transaction {
+  id              String    @id @default(cuid())
+  merchantId      String
+  userId          String?
+  orderId         String    @unique
+  amount          Float
+  currency        String    @default("INR")
+  status          TransactionStatus @default(PENDING)
+  paymentMethod   PaymentMethod
+  paymentDetails  Json
+  customerDetails Json
+  metadata        Json?
+  gatewayResponse Json?
+  failureReason   String?
+  refundedAmount  Float     @default(0)
+  fees            Float     @default(0)
+  commission      Float     @default(0)
+  netAmount       Float
+  processedAt     DateTime?
+  completedAt     DateTime?
+  failedAt        DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  merchant        Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  user            User?     @relation(fields: [userId], references: [id])
+  refunds         Refund[]
+  disputes        Dispute[]
+
+  @@map("transactions")
+}
+
+model Refund {
+  id              String    @id @default(cuid())
+  transactionId   String
+  merchantId      String
+  userId          String
+  refundId        String    @unique
+  amount          Float
+  reason          String
+  status          RefundStatus @default(PENDING)
+  processedAt     DateTime?
+  failureReason   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  merchant        Merchant    @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  user            User        @relation(fields: [userId], references: [id])
+
+  @@map("refunds")
+}
+
+model Dispute {
+  id              String    @id @default(cuid())
+  transactionId   String
+  merchantId      String
+  userId          String
+  disputeId       String    @unique
+  reason          String
+  amount          Float
+  status          DisputeStatus @default(OPEN)
+  evidence        Json?
+  resolution      String?
+  resolvedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  merchant        Merchant    @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  user            User        @relation(fields: [userId], references: [id])
+
+  @@map("disputes")
+}
+
+model ApiKey {
+  id              String    @id @default(cuid())
+  merchantId      String
+  userId          String
+  name            String
+  key             String    @unique
+  secret          String
+  permissions     String[]
+  isActive        Boolean   @default(true)
+  lastUsed        DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  merchant        Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id])
+
+  @@map("api_keys")
+}
+
+model Webhook {
+  id              String    @id @default(cuid())
+  merchantId      String
+  userId          String
+  name            String
+  url             String
+  events          String[]
+  secret          String
+  isActive        Boolean   @default(true)
+  lastTriggered   DateTime?
+  failureCount    Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  merchant        Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id])
+
+  @@map("webhooks")
+}
+
+model QRCode {
+  id              String    @id @default(cuid())
+  merchantId      String
+  name            String
+  amount          Float?
+  description     String?
+  imageUrl        String
+  isActive        Boolean   @default(true)
+  scanCount       Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  merchant        Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@map("qr_codes")
+}
+
+model Invoice {
+  id              String    @id @default(cuid())
+  merchantId      String
+  invoiceNumber   String    @unique
+  customerEmail   String
+  customerName    String
+  amount          Float
+  currency        String    @default("INR")
+  description     String?
+  items           Json?
+  status          InvoiceStatus @default(DRAFT)
+  dueDate         DateTime?
+  paidAt          DateTime?
+  transactionId   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  merchant        Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@map("invoices")
+}
+
+model Notification {
+  id              String    @id @default(cuid())
+  userId          String
+  type            NotificationType
+  title           String
+  message         String
+  data            Json?
+  isRead          Boolean   @default(false)
+  readAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id              String    @id @default(cuid())
+  userId          String
+  action          String
+  resource        String
+  resourceId      String?
+  details         Json?
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
+}
+
+// Enums
+enum UserRole {
+  USER
+  MERCHANT
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum BusinessType {
+  INDIVIDUAL
+  PARTNERSHIP
+  PRIVATE_LIMITED
+  PUBLIC_LIMITED
+  LLP
+  PROPRIETORSHIP
+}
+
+enum KYCStatus {
+  PENDING
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  UPI
+  CARD
+  NETBANKING
+  WALLET
+  EMI
+  PAYLATER
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum NotificationType {
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  REFUND_PROCESSED
+  DISPUTE_OPENED
+  KYC_APPROVED
+  KYC_REJECTED
+  SYSTEM_ALERT
+} 

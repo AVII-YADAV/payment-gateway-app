@@ -27,8 +27,8 @@ A comprehensive payment gateway platform inspired by Stripe and Razorpay, built 
 1. **Clone and Install Dependencies**
 
 ```bash
-git clone <repository-url>
-cd payment-gateway
+git clone https://github.com/AVII-YADAV/payment-gateway-app
+cd payment-gateway-app
 npm run install:all
 ```
 
@@ -167,10 +167,4 @@ MIT License - see LICENSE file for details
 4. Push to the branch
 5. Create a Pull Request
 
-## 📞 Support
 
-For support and questions:
-
-- Email: support@paymentgateway.com
-- Documentation: `/docs`
-- Issues: GitHub Issues
